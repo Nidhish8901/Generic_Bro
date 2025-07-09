@@ -1,5 +1,4 @@
 services:
-  # Backend service
   - type: web
     name: genericbro-backend
     env: python
@@ -8,7 +7,7 @@ services:
       apt-get install -y build-essential cargo libssl-dev
       pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn run:app --host=0.0.0.0 --port=$PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.0
@@ -16,60 +15,3 @@ services:
         value: 8000
     healthCheckPath: /
     autoDeploy: true
-
-  # Frontend APK build service
-  - type: web
-    name: genericbro-frontend-build
-    env: docker
-    buildCommand: |
-      # Install Flutter dependencies
-      apt-get update && apt-get install -y curl git unzip xz-utils zip libglu1-mesa openjdk-11-jdk
-      
-      # Download and setup Flutter
-      git clone https://github.com/flutter/flutter.git /flutter
-      export PATH="/flutter/bin:$PATH"
-      
-      # Configure Flutter
-      flutter config --no-analytics
-      flutter doctor
-      
-      # Install Android SDK and tools
-      mkdir -p /android-sdk
-      cd /android-sdk
-      curl -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-      unzip commandlinetools.zip
-      export ANDROID_SDK_ROOT=/android-sdk
-      export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
-      
-      # Accept licenses and install required SDK components
-      yes | sdkmanager --licenses
-      sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
-      
-      # Create keystore and properties
-      cd /app/genericbro-frontend/android
-      echo "storePassword=genericbro123" > key.properties
-      echo "keyPassword=genericbro123" >> key.properties
-      echo "keyAlias=upload" >> key.properties
-      echo "storeFile=app/upload-keystore.jks" >> key.properties
-      
-      cd app
-      keytool -genkey -v -keystore upload-keystore.jks \
-        -keyalg RSA -keysize 2048 -validity 10000 \
-        -alias upload -storepass genericbro123 -keypass genericbro123 \
-        -dname "CN=Generic Bro, OU=Development, O=Generic Bro, L=Hyderabad, S=Telangana, C=IN"
-      
-      # Build APK
-      cd /app/genericbro-frontend
-      flutter pub get
-      flutter build apk --release
-      
-      # Move APK to output directory
-      mkdir -p /app/build/outputs
-      cp build/app/outputs/flutter-apk/app-release.apk /app/build/outputs/
-    
-    staticPublishPath: ./build/outputs
-    envVars:
-      - key: ANDROID_SDK_ROOT
-        value: /android-sdk
-      - key: JAVA_HOME
-        value: /usr/lib/jvm/java-11-openjdk-amd64
